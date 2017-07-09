@@ -3,6 +3,12 @@
 #define SCREEN_WIDTH 64
 #define SCREEN_HEIGHT 48
 
+#define UP_PIN    2
+#define DOWN_PIN  3
+#define LEFT_PIN  5
+//#define RIGHT_PIN 4
+#define BTN_PIN   6
+
 class Brick {
 public:
   static const uint8_t width=4;
@@ -28,10 +34,14 @@ public:
   Bat(uint8_t x, uint8_t y) : x{x}, y{y} {}
 
   void left() {
-    this->x++;
+    if(this->x < SCREEN_WIDTH - 4) {
+      this->x+=4;
+    }
   }
   void right() {
-    this->x--;
+    if(this->x > 4) {
+      this->x-=4; 
+    }
   }
   
   void draw() {
@@ -96,6 +106,16 @@ public:
   void right() {}
   void button() {}
 
+  // We will use MouseUp and Down for this game... And orient the trackball accordingly.
+  void controls(int mouseLeft, int mouseRight) {
+    if (mouseLeft) {
+      this->player.left();
+    }
+    else if(mouseRight) {
+      this->player.right();
+    }
+  }
+
   void update() {
     // Ball bouncing
     this->ball.update();
@@ -130,19 +150,63 @@ public:
   }
 };
 
+class TrackDir {
+  int positive_pin;
+  int negative_pin;
+  int positive_pin_old;
+  int negative_pin_old;
+
+public:
+  TrackDir(int positive_pin, int negative_pin) : 
+    positive_pin{positive_pin}, 
+    negative_pin{negative_pin}, 
+    positive_pin_old{0},
+    negative_pin_old{0} {
+      pinMode(positive_pin, INPUT);
+      pinMode(negative_pin, INPUT);
+    }
+
+  int read() {
+    int new_value = digitalRead(this->positive_pin);
+    if(new_value != this->positive_pin_old) {
+      this->positive_pin_old = new_value;
+      return 1;
+    }
+    new_value = digitalRead(this->negative_pin);
+    if(new_value != this->negative_pin_old){
+      this->negative_pin_old = new_value;
+       return -1;
+    }
+    return 0;
+  }
+};
+
 GameScene *scene;
+TrackDir *updown;
 
 void setup() {
 	uView.begin();		// begin of MicroView
 	uView.clear(ALL);	// erase hardware memory inside the OLED controller
 	uView.display();	// display the content in the buffer memory, by default it is the MicroView logo
+  pinMode(LEFT_PIN, INPUT);
+//  pinMode(RIGHT_PIN, INPUT);
+  pinMode(BTN_PIN, INPUT);
+  updown = new TrackDir(UP_PIN, DOWN_PIN);
   scene = new GameScene();
 }
 
+int draw_frame = 1;
 void loop() {
-	uView.clear(PAGE);	// erase the memory buffer, when next uView.display() is called, the OLED will be cleared.
-  scene->update();
-  scene->draw();
-  uView.display();	// display the content in the buffer memory, by default it is the MicroView logo
-  delay(50);
+  int moved = updown->read();
+  scene->controls(moved < 0, moved > 0);
+  draw_frame --;
+
+  if(draw_frame == 0) {
+    uView.clear(PAGE);	// erase the memory buffer, when next uView.display() is called, the OLED will be cleared.
+    scene->update();
+    scene->draw();
+    uView.display();	// display the content in the buffer memory, by default it is the MicroView logo
+    draw_frame = 20;
+  }
+  delay(1);
 }
