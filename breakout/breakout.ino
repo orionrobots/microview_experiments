@@ -116,6 +116,13 @@ public:
 
   void draw() {
     this->ball.draw();
+    this->player.draw();
+    for(int i=0; i<GameScene::max_bricks; i++) {
+      if (this->bricks[i]) {
+        this->bricks[i]->draw();
+      }
+    }
+    
   }
 
   void game_over() {
