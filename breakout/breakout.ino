@@ -77,10 +77,20 @@ class GameScene {
 public:
   Bat player;
   Ball ball;
+  static const uint8_t ballystart=30;
   static const uint8_t max_bricks=40;
+
   Brick *bricks[GameScene::max_bricks];
 
-  GameScene() : player(SCREEN_WIDTH/2 - Bat::width/2, 45), ball(SCREEN_WIDTH/2 - 1, 30) {
+  GameScene() : player(SCREEN_WIDTH/2 - Bat::width/2, 45), ball(SCREEN_WIDTH/2 - 1, ballystart) {
+      for (int n=0; n<GameScene::max_bricks; n++) {
+        this->bricks[n] = NULL;
+      }
+
+      this->reset();
+  }
+
+  void reset() {
       // Prepare rows of bricks
       // Padding is like this
       //  Screen Padding
@@ -93,18 +103,19 @@ public:
       const uint8_t brick_screen_xpadding = 2;
       const uint8_t brick_ypadding = 2;
       const uint8_t brick_screen_ypadding =0;
+
       for (y = 0; y < 4; y++) {
         uint8_t bricky = y * (Brick::height + brick_ypadding) + brick_ypadding/2 + brick_screen_ypadding;
         for (x=0; x< 10; x++) {
           uint8_t brickx = x*(Brick::width + brick_xpadding) + brick_xpadding/2 + brick_screen_xpadding;
-          this->bricks[y*10 + x] = new Brick(brickx, bricky);
+          if(this->bricks[y*10+x] == NULL) {
+            this->bricks[y*10 + x] = new Brick(brickx, bricky);
+          }
         }
       }
+      this->ball.x = SCREEN_WIDTH/2 - 1;
+      this->ball.y = ballystart;
   }
-  
-  void left() {}
-  void right() {}
-  void button() {}
 
   // We will use MouseUp and Down for this game... And orient the trackball accordingly.
   void controls(int mouseLeft, int mouseRight) {
@@ -113,6 +124,32 @@ public:
     }
     else if(mouseRight) {
       this->player.right();
+    }
+  }
+
+  void collisions() {
+    // Is it at the right height for the bat?
+    int ballxmax = max(this->ball.x + this->ball.xdir, this->ball.x);
+    int ballxmin = min(this->ball.x + this->ball.xdir, this->ball.x);
+    int ballymax = max(this->ball.y + this->ball.ydir, this->ball.y);
+    int ballymin = min(this->ball.y + this->ball.ydir, this->ball.y);
+    if(ballymax > 43 && 
+      ballxmax > this->player.x && ballxmin < this->player.x + Bat::width) {
+        this->ball.ydir = -1;
+      }
+    if(ballymin < 15) {
+      for(int n=0; n<GameScene::max_bricks; n++) {
+        Brick * current=this->bricks[n];
+        if(current) {
+          if(this->ball.x >= current->x && this->ball.x <= (current->x + Brick::width) &&
+            ballymin >= current->y && ballymin <= current->y + 2) {
+              // BALL brick collision
+              delete(current);
+              this->bricks[n] = NULL;
+              this->ball.ydir = -this->ball.ydir;
+          }
+        }
+      }
     }
   }
 
@@ -126,12 +163,10 @@ public:
       this->ball.ydir = -this->ball.ydir;
     }
     if (this->ball.y > SCREEN_HEIGHT-2) {
-      this->ball.ydir = -this->ball.ydir;
-      //this->game_over();
-      //return;
+      this->reset();
     }
     // Collisions!
-
+    this->collisions();
   }
 
   void draw() {
@@ -205,8 +240,8 @@ void loop() {
     uView.clear(PAGE);	// erase the memory buffer, when next uView.display() is called, the OLED will be cleared.
     scene->update();
     scene->draw();
-    uView.display();	// display the content in the buffer memory, by default it is the MicroView logo
-    draw_frame = 20;
+    uView.display();
+    draw_frame = 30;
   }
   delay(1);
 }
